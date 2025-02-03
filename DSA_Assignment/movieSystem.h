@@ -1,65 +1,66 @@
 #ifndef MOVIE_SYSTEM_H
 #define MOVIE_SYSTEM_H
 
-// Basic structure definitions
-struct Movie {
-    int id;
-    char title[100];    // Fixed-size array instead of std::string
-    char plot[2048];     // Fixed-size array instead of std::string
-    int year;
-};
-
-struct Actor {
-    int id;
-    char name[100];     // Fixed-size array instead of std::string
-    int birth;
-};
-
-struct Cast {
-    int person_id;
-    int movie_id;
-};
-
-// Node structures for linked lists
-struct ActorNode {
-    Actor data;
-    ActorNode* next;
-};
-
-struct MovieNode {
-    Movie data;
-    MovieNode* next;
-};
-
-struct CastNode {
-    Cast data;
-    CastNode* next;
-};
+#include <string>
 
 class MovieSystem {
 private:
-    ActorNode* actorHead;
-    MovieNode* movieHead;
-    CastNode* castHead;
+    struct Actor {
+        int id;
+        char name[100];
+        int birthYear;
+        Actor* next;
+    };
+
+    struct Movie {
+        int id;
+        char title[100];
+        char plot[2048];
+        int year;
+        Actor* actors;
+        Movie* next;
+    };
+    struct Cast {
+        int person_id;
+        int movie_id;
+        Cast* next;
+    };
+
+    Actor* actorHead;
+    Movie* movieHead;
+    Cast* castHead;
+    const std::string ACTORS_FILE;
+    const std::string MOVIES_FILE;
+    const std::string CAST_FILE;
 
     // Private helper methods
-    void addActor(const Actor& actor);
-    void addMovie(const Movie& movie);
-    void addCast(const Cast& cast);
+    Actor* createActor(int id, const char* name, int birthYear);
+    Movie* createMovie(int id, const char* title, const char* plot, int year);
+    void loadActors();
+    void loadMovies();
+    void linkActorsToMovies();
+    void saveActors();
+    void saveMovies();
 
 public:
-    // Constructor and Destructor
+    // Constructor to initialize member variables
     MovieSystem();
-    ~MovieSystem();
 
-    // File reading methods
-    bool readActorsFromFile(const char* filename);    // Changed from std::string to const char*
-    bool readMoviesFromFile(const char* filename);    // Changed from std::string to const char*
-    bool readCastFromFile(const char* filename);      // Changed from std::string to const char*
+    // Main menu and data operations
+    void menu();
+    void loadData();
+    void saveData();
 
-    // Display method (for testing)
-    void displayAllData();
+    // Actor operations
+    void addActor();
+    void updateActorDetails();
 
+    // Movie operations
+    void addMovie();
+    void updateMovieDetails();
+    void addActorToMovie();
+
+    // part ii
     void displayActorsByAgeRange(int minAge, int maxAge);
     void displayRecentMovies();
     void displayMoviesForActor(int actorId);
@@ -67,5 +68,4 @@ public:
     void displayActorNetwork(int actorId);
 };
 
-
-#endif
+#endif // MOVIE_SYSTEM_H

@@ -1,238 +1,341 @@
-#include "movieSystem.h"
+#include "MovieSystem.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstring>
 
-MovieSystem::MovieSystem() {
-    actorHead = nullptr;
-    movieHead = nullptr;
-    castHead = nullptr;
+MovieSystem::MovieSystem()
+    : actorHead(nullptr),
+    movieHead(nullptr),
+    ACTORS_FILE("actors.csv"),
+    MOVIES_FILE("movies.csv"),
+    CAST_FILE("cast.csv") {}
+
+MovieSystem::Actor* MovieSystem::createActor(int id, const char* name, int birthYear) {
+    Actor* newActor = new Actor;
+    newActor->id = id;
+    strcpy_s(newActor->name, sizeof(newActor->name), name);
+    newActor->birthYear = birthYear;
+    newActor->next = nullptr;
+    return newActor;
 }
 
-MovieSystem::~MovieSystem() {
-    while (actorHead != nullptr) {
-        ActorNode* temp = actorHead;
-        actorHead = actorHead->next;
-        delete temp;
-    }
-    while (movieHead != nullptr) {
-        MovieNode* temp = movieHead;
-        movieHead = movieHead->next;
-        delete temp;
-    }
-    while (castHead != nullptr) {
-        CastNode* temp = castHead;
-        castHead = castHead->next;
-        delete temp;
-    }
+MovieSystem::Movie* MovieSystem::createMovie(int id, const char* title, const char* plot, int year) {
+    Movie* newMovie = new Movie;
+    newMovie->id = id;
+    strcpy_s(newMovie->title, sizeof(newMovie->title), title);
+    strcpy_s(newMovie->plot, sizeof(newMovie->plot), plot);
+    newMovie->year = year;
+    newMovie->actors = nullptr;
+    newMovie->next = nullptr;
+    return newMovie;
 }
 
-void MovieSystem::addActor(const Actor& actor) {
-    ActorNode* newNode = new ActorNode;
-    newNode->data = actor;
-    newNode->next = nullptr;
-
-    if (actorHead == nullptr) {
-        actorHead = newNode;
+void MovieSystem::loadActors() {
+    std::ifstream file(ACTORS_FILE);
+    if (!file.is_open()) {
+        std::cout << "Error: Could not open actors file.\n";
+        return;
     }
-    else {
-        ActorNode* current = actorHead;
-        while (current->next != nullptr) {
-            current = current->next;
-        }
-        current->next = newNode;
-    }
-}
+    std::string line;
+    std::getline(file, line);
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string idStr, name, birthYearStr;
+        std::getline(ss, idStr, ',');
+        std::getline(ss, name, ',');
+        std::getline(ss, birthYearStr, ',');
 
-void MovieSystem::addMovie(const Movie& movie) {
-    MovieNode* newNode = new MovieNode;
-    newNode->data = movie;
-    newNode->next = nullptr;
-
-    if (movieHead == nullptr) {
-        movieHead = newNode;
-    }
-    else {
-        MovieNode* current = movieHead;
-        while (current->next != nullptr) {
-            current = current->next;
-        }
-        current->next = newNode;
-    }
-}
-
-void MovieSystem::addCast(const Cast& cast) {
-    CastNode* newNode = new CastNode;
-    newNode->data = cast;
-    newNode->next = nullptr;
-
-    if (castHead == nullptr) {
-        castHead = newNode;
-    }
-    else {
-        CastNode* current = castHead;
-        while (current->next != nullptr) {
-            current = current->next;
-        }
-        current->next = newNode;
-    }
-}
-
-bool MovieSystem::readMoviesFromFile(const char* filename) {
-    std::ifstream file(filename);
-    if (!file) {
-        std::cout << "Error opening movies file: " << filename << std::endl;
-        return false;
-    }
-
-    char line[4096];
-    char* next_token = nullptr;
-    // Skip header line
-    file.getline(line, 4096);
-
-    while (file.getline(line, 4096)) {
-        Movie movie;
-        char* token = strtok_s(line, ",", &next_token);
-        if (token != nullptr) {
-            movie.id = atoi(token);
-            token = strtok_s(nullptr, ",", &next_token);
-            if (token != nullptr) {
-                strcpy_s(movie.title, sizeof(movie.title), token);
-                token = strtok_s(nullptr, ",", &next_token);
-                if (token != nullptr) {
-                    strcpy_s(movie.plot, sizeof(movie.plot), token);
-                    token = strtok_s(nullptr, ",", &next_token);
-                    if (token != nullptr) {
-                        movie.year = atoi(token);
-                        addMovie(movie);
-                    }
-                }
-            }
-        }
+        Actor* newActor = createActor(std::stoi(idStr), name.c_str(), std::stoi(birthYearStr));
+        newActor->next = actorHead;
+        actorHead = newActor;
     }
     file.close();
-    return true;
 }
 
-bool MovieSystem::readActorsFromFile(const char* filename) {
-    std::ifstream file(filename);
-    if (!file) {
-        std::cout << "Error opening actors file: " << filename << std::endl;
-        return false;
+void MovieSystem::loadMovies() {
+    std::ifstream file(MOVIES_FILE);
+    if (!file.is_open()) {
+        std::cout << "Error: Could not open movies file.\n";
+        return;
     }
+    std::string line;
+    std::getline(file, line);
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string idStr, title, plot, yearStr;
+        std::getline(ss, idStr, ',');
+        std::getline(ss, title, ',');
+        std::getline(ss, plot, ',');
+        std::getline(ss, yearStr, ',');
 
-    char line[1024];
-    char* next_token = nullptr;
-    file.getline(line, 1024);  // Skip header
-
-    while (file.getline(line, 1024)) {
-        Actor actor;
-        char* token = strtok_s(line, ",", &next_token);
-        if (token != nullptr) {
-            actor.id = atoi(token);
-            token = strtok_s(nullptr, ",", &next_token);
-            if (token != nullptr) {
-                // Remove quotes from name
-                while (*token == ' ' || *token == '"') token++; // Skip leading spaces and quotes
-                strcpy_s(actor.name, sizeof(actor.name), token);
-                if (actor.name[strlen(actor.name) - 1] == '"') {
-                    actor.name[strlen(actor.name) - 1] = '\0'; // Remove trailing quote
-                }
-
-                token = strtok_s(nullptr, ",", &next_token);
-                if (token != nullptr) {
-                    actor.birth = atoi(token);
-                    addActor(actor);
-                }
-            }
-        }
+        Movie* newMovie = createMovie(std::stoi(idStr), title.c_str(), plot.c_str(), std::stoi(yearStr));
+        newMovie->next = movieHead;
+        movieHead = newMovie;
     }
     file.close();
-    return true;
 }
 
-bool MovieSystem::readCastFromFile(const char* filename) {
-    std::ifstream file(filename);
-    if (!file) {
-        std::cout << "Error opening cast file: " << filename << std::endl;
-        return false;
+void MovieSystem::linkActorsToMovies() {
+    std::ifstream file(CAST_FILE);
+    if (!file.is_open()) {
+        std::cout << "Error: Could not open cast file.\n";
+        return;
     }
+    std::string line;
+    std::getline(file, line);
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string actorIdStr, movieIdStr;
+        std::getline(ss, actorIdStr, ',');
+        std::getline(ss, movieIdStr, ',');
 
-    char line[1024];
-    char* next_token = nullptr;
-    // Skip header line
-    file.getline(line, 1024);
+        int actorId = std::stoi(actorIdStr);
+        int movieId = std::stoi(movieIdStr);
 
-    while (file.getline(line, 1024)) {
-        Cast cast;
-        char* token = strtok_s(line, ",", &next_token);
-        if (token != nullptr) {
-            cast.person_id = atoi(token);
-            token = strtok_s(nullptr, ",", &next_token);
-            if (token != nullptr) {
-                cast.movie_id = atoi(token);
-                addCast(cast);
-            }
+        Actor* actor = actorHead;
+        while (actor && actor->id != actorId) {
+            actor = actor->next;
         }
+        if (!actor) continue;
+
+        Movie* movie = movieHead;
+        while (movie && movie->id != movieId) {
+            movie = movie->next;
+        }
+        if (!movie) continue;
+
+        Actor* actorCopy = createActor(actor->id, actor->name, actor->birthYear);
+        actorCopy->next = movie->actors;
+        movie->actors = actorCopy;
     }
     file.close();
-    return true;
 }
 
-void MovieSystem::displayAllData() {
-    std::cout << "\nActors:\n";
-    ActorNode* currentActor = actorHead;
-    while (currentActor != nullptr) {
-        std::cout << currentActor->data.id << ", "
-            << currentActor->data.name << ", "
-            << currentActor->data.birth << std::endl;
-        currentActor = currentActor->next;
+void MovieSystem::saveActors() {
+    std::ofstream file(ACTORS_FILE);
+    if (!file.is_open()) {
+        std::cout << "Error: Could not open actors file for writing.\n";
+        return;
     }
-
-    std::cout << "\nMovies:\n";
-    MovieNode* currentMovie = movieHead;
-    while (currentMovie != nullptr) {
-        std::cout << currentMovie->data.id << ", "
-            << currentMovie->data.title << ", "
-            << currentMovie->data.plot << ","
-            << currentMovie->data.year << std::endl;
-        currentMovie = currentMovie->next;
+    file << "id,name,birth\n";
+    Actor* current = actorHead;
+    while (current) {
+        file << current->id << ",\"" << current->name << "\"," << current->birthYear << "\n";
+        current = current->next;
     }
-
-    std::cout << "\nCast:\n";
-    CastNode* currentCast = castHead;
-    while (currentCast != nullptr) {
-        std::cout << currentCast->data.person_id << ", "
-            << currentCast->data.movie_id << std::endl;
-        currentCast = currentCast->next;
-    }
+    file.close();
 }
 
+void MovieSystem::saveMovies() {
+    std::ofstream file(MOVIES_FILE);
+    if (!file.is_open()) {
+        std::cout << "Error: Could not open movies file for writing.\n";
+        return;
+    }
+    file << "id,title,plot,year\n";
+    Movie* current = movieHead;
+    while (current) {
+        file << current->id << ",\"" << current->title << "\",\"" << current->plot << "\","
+            << current->year << "\n";
+        current = current->next;
+    }
+    file.close();
+}
 
-void MovieSystem::displayActorsByAgeRange(int minAge, int maxAge) { // prompt user and pass in minAge and maxAge as parameters
+void MovieSystem::addActor() {
+    int id, birthYear;
+    char name[50];
 
-    int currentYear = 2025; //set currentYear as 2025
+    std::cout << "Enter Actor ID: ";
+    std::cin >> id;
+    std::cin.ignore();
 
-    const int MAX_ACTORS = 100; //array size, can adjust or change to count later
-    Actor* actorsInRange = new Actor[MAX_ACTORS]; //use dynamic array to store needed data temporarily
+    std::cout << "Enter Actor Name: ";
+    std::cin.getline(name, 50);
+
+    std::cout << "Enter Actor Birth Year: ";
+    std::cin >> birthYear;
+
+    Actor* current = actorHead;
+    while (current) {
+        if (current->id == id) {
+            std::cout << "Error: An actor with this ID already exists.\n";
+            return;
+        }
+        current = current->next;
+    }
+
+    Actor* newActor = createActor(id, name, birthYear);
+    newActor->next = actorHead;
+    actorHead = newActor;
+
+    std::cout << "Actor added successfully!\n";
+}
+
+void MovieSystem::addMovie() {
+    int id, year;
+    char title[50], plot[200];
+
+    std::cout << "Enter Movie ID: ";
+    std::cin >> id;
+    std::cin.ignore();
+
+    std::cout << "Enter Movie Title: ";
+    std::cin.getline(title, 50);
+
+    std::cout << "Enter Movie Plot: ";
+    std::cin.getline(plot, 200);
+
+    std::cout << "Enter Movie Release Year: ";
+    std::cin >> year;
+
+    Movie* current = movieHead;
+    while (current) {
+        if (current->id == id) {
+            std::cout << "Error: A movie with this ID already exists.\n";
+            return;
+        }
+        current = current->next;
+    }
+
+    Movie* newMovie = createMovie(id, title, plot, year);
+    newMovie->next = movieHead;
+    movieHead = newMovie;
+
+    std::cout << "Movie added successfully!\n";
+}
+
+void MovieSystem::addActorToMovie() {
+    int actorId, movieId;
+
+    std::cout << "Enter Actor ID: ";
+    std::cin >> actorId;
+    std::cout << "Enter Movie ID: ";
+    std::cin >> movieId;
+
+    Actor* actor = actorHead;
+    while (actor && actor->id != actorId) {
+        actor = actor->next;
+    }
+    if (!actor) {
+        std::cout << "Error: Actor not found.\n";
+        return;
+    }
+
+    Movie* movie = movieHead;
+    while (movie && movie->id != movieId) {
+        movie = movie->next;
+    }
+    if (!movie) {
+        std::cout << "Error: Movie not found.\n";
+        return;
+    }
+
+    Actor* actorCopy = createActor(actor->id, actor->name, actor->birthYear);
+    actorCopy->next = movie->actors;
+    movie->actors = actorCopy;
+
+    std::cout << "Actor added to movie successfully!\n";
+}
+
+void MovieSystem::updateActorDetails() {
+    int id, birthYear;
+    char name[50];
+
+    std::cout << "Enter Actor ID to update: ";
+    std::cin >> id;
+
+    Actor* actor = actorHead;
+    while (actor && actor->id != id) {
+        actor = actor->next;
+    }
+    if (!actor) {
+        std::cout << "Error: Actor not found.\n";
+        return;
+    }
+
+    std::cout << "Enter new Actor Name: ";
+    std::cin.ignore();
+    std::cin.getline(name, 50);
+
+    std::cout << "Enter new Actor Birth Year: ";
+    std::cin >> birthYear;
+
+    strcpy_s(actor->name, sizeof(actor->name), name);
+    actor->birthYear = birthYear;
+
+    std::cout << "Actor details updated successfully!\n";
+}
+
+void MovieSystem::updateMovieDetails() {
+    int id, year;
+    char title[50], plot[200];
+
+    std::cout << "Enter Movie ID to update: ";
+    std::cin >> id;
+
+    Movie* movie = movieHead;
+    while (movie && movie->id != id) {
+        movie = movie->next;
+    }
+    if (!movie) {
+        std::cout << "Error: Movie not found.\n";
+        return;
+    }
+
+    std::cout << "Enter new Movie Title: ";
+    std::cin.ignore();
+    std::cin.getline(title, 50);
+
+    std::cout << "Enter new Movie Plot: ";
+    std::cin.getline(plot, 200);
+
+    std::cout << "Enter new Movie Release Year: ";
+    std::cin >> year;
+
+    strcpy_s(movie->title, sizeof(movie->title), title);
+    strcpy_s(movie->plot, sizeof(movie->plot), plot);
+    movie->year = year;
+
+    std::cout << "Movie details updated successfully!\n";
+}
+
+void MovieSystem::loadData() {
+    loadActors();
+    loadMovies();
+    linkActorsToMovies();
+    std::cout << "Data loaded successfully!\n";
+}
+
+void MovieSystem::saveData() {
+    saveActors();
+    saveMovies();
+    std::cout << "Data saved successfully!\n";
+}
+
+void MovieSystem::displayActorsByAgeRange(int minAge, int maxAge) {
+    int currentYear = 2025;
+    const int MAX_ACTORS = 100;
+    Actor* actorsInRange = new Actor[MAX_ACTORS];
     int count = 0;
 
-    //get actors in the age range from the stored linked list
-    ActorNode* current = actorHead; //current now points to first node
+    // Get actors in the age range from the stored linked list
+    Actor* current = actorHead;  // Changed from ActorNode* to Actor*
     while (current != nullptr) {
-        int age = currentYear - current->data.birth;
+        int age = currentYear - current->birthYear;  // Changed from birth to birthYear
         if (age >= minAge && age <= maxAge) {
-            actorsInRange[count] = current->data;
+            actorsInRange[count] = *current;  // Copy the entire Actor struct
             count++;
         }
         current = current->next;
     }
 
-    // Sort actors by age (bubble sort since we can't use STL sort)
+    // Sort actors by age (bubble sort)
     for (int i = 0; i < count - 1; i++) {
         for (int j = 0; j < count - i - 1; j++) {
-            if ((currentYear - actorsInRange[j].birth) >
-                (currentYear - actorsInRange[j + 1].birth)) {
+            if ((currentYear - actorsInRange[j].birthYear) >
+                (currentYear - actorsInRange[j + 1].birthYear)) {
                 // Swap actors
                 Actor temp = actorsInRange[j];
                 actorsInRange[j] = actorsInRange[j + 1];
@@ -244,7 +347,7 @@ void MovieSystem::displayActorsByAgeRange(int minAge, int maxAge) { // prompt us
     // Display the sorted results
     std::cout << "\nActors aged " << minAge << " to " << maxAge << ":\n";
     for (int i = 0; i < count; i++) {
-        int age = currentYear - actorsInRange[i].birth;
+        int age = currentYear - actorsInRange[i].birthYear;
         std::cout << actorsInRange[i].name << " (Age: " << age << ")\n";
     }
 
@@ -258,10 +361,10 @@ void MovieSystem::displayRecentMovies() {
     const int startYear = currentYear - yearsToLookBack;
 
     // First check if we have any recent movies
-    MovieNode* current = movieHead;
+    Movie* current = movieHead;
     bool foundMovies = false;
     while (current != nullptr) {
-        if (current->data.year >= startYear) {
+        if (current->year >= startYear) {
             foundMovies = true;
             break;
         }
@@ -283,13 +386,13 @@ void MovieSystem::displayRecentMovies() {
     // Go through original list and insert into sorted list
     current = movieHead;
     while (current != nullptr) {
-        if (current->data.year >= startYear) {
+        if (current->year >= startYear) {
             // Create new node
             TempMovieNode* newNode = new TempMovieNode;
-            newNode->moviePtr = &(current->data);
+            newNode->moviePtr = current;    // Changed from &(current->data)
 
             // Insert in sorted position
-            if (sortedHead == nullptr || sortedHead->moviePtr->year > current->data.year) {
+            if (sortedHead == nullptr || sortedHead->moviePtr->year > current->year) {
                 // Insert at beginning
                 newNode->next = sortedHead;
                 sortedHead = newNode;
@@ -298,7 +401,7 @@ void MovieSystem::displayRecentMovies() {
                 // Find position to insert
                 TempMovieNode* sortedCurrent = sortedHead;
                 while (sortedCurrent->next != nullptr &&
-                    sortedCurrent->next->moviePtr->year <= current->data.year) {
+                    sortedCurrent->next->moviePtr->year <= current->year) {
                     sortedCurrent = sortedCurrent->next;
                 }
                 newNode->next = sortedCurrent->next;
@@ -321,11 +424,10 @@ void MovieSystem::displayRecentMovies() {
     }
 }
 
-
 void MovieSystem::displayMoviesForActor(int actorId) {
     // First verify actor exists
-    ActorNode* actor = actorHead;
-    while (actor != nullptr && actor->data.id != actorId) {
+    Actor* actor = actorHead;
+    while (actor != nullptr && actor->id != actorId) {
         actor = actor->next;
     }
     if (actor == nullptr) {
@@ -340,45 +442,43 @@ void MovieSystem::displayMoviesForActor(int actorId) {
     };
     TempMovieNode* sortedHead = nullptr;
 
-    // Find all movies this actor is in through cast list
-    CastNode* castNode = castHead;
-    while (castNode != nullptr) {
-        if (castNode->data.person_id == actorId) {
-            // Find corresponding movie
-            MovieNode* movieNode = movieHead;
-            while (movieNode != nullptr) {
-                if (movieNode->data.id == castNode->data.movie_id) {
-                    // Create new node
-                    TempMovieNode* newNode = new TempMovieNode;
-                    newNode->moviePtr = &(movieNode->data);
+    // Find all movies this actor is in
+    Movie* currentMovie = movieHead;
+    while (currentMovie != nullptr) {
+        // Check if actor is in this movie's cast
+        Actor* castMember = currentMovie->actors;
+        while (castMember != nullptr) {
+            if (castMember->id == actorId) {
+                // Create new node
+                TempMovieNode* newNode = new TempMovieNode;
+                newNode->moviePtr = currentMovie;
 
-                    // Insert in alphabetically sorted position
-                    if (sortedHead == nullptr ||
-                        strcmp(sortedHead->moviePtr->title, movieNode->data.title) > 0) {
-                        // Insert at beginning
-                        newNode->next = sortedHead;
-                        sortedHead = newNode;
-                    }
-                    else {
-                        // Find position to insert
-                        TempMovieNode* current = sortedHead;
-                        while (current->next != nullptr &&
-                            strcmp(current->next->moviePtr->title, movieNode->data.title) <= 0) {
-                            current = current->next;
-                        }
-                        newNode->next = current->next;
-                        current->next = newNode;
-                    }
-                    break;
+                // Insert in alphabetically sorted position
+                if (sortedHead == nullptr ||
+                    strcmp(sortedHead->moviePtr->title, currentMovie->title) > 0) {
+                    // Insert at beginning
+                    newNode->next = sortedHead;
+                    sortedHead = newNode;
                 }
-                movieNode = movieNode->next;
+                else {
+                    // Find position to insert
+                    TempMovieNode* current = sortedHead;
+                    while (current->next != nullptr &&
+                        strcmp(current->next->moviePtr->title, currentMovie->title) <= 0) {
+                        current = current->next;
+                    }
+                    newNode->next = current->next;
+                    current->next = newNode;
+                }
+                break;  // Found the actor in this movie, no need to check other cast members
             }
+            castMember = castMember->next;
         }
-        castNode = castNode->next;
+        currentMovie = currentMovie->next;
     }
 
     // Display actor name and their movies
-    std::cout << "\nMovies starring " << actor->data.name << ":\n";
+    std::cout << "\nMovies starring " << actor->name << ":\n";
     std::cout << "----------------------------------------\n";
 
     if (sortedHead == nullptr) {
@@ -394,10 +494,11 @@ void MovieSystem::displayMoviesForActor(int actorId) {
         }
     }
 }
+
 void MovieSystem::displayActorsInMovie(int movieId) {
     // First verify movie exists
-    MovieNode* movie = movieHead;
-    while (movie != nullptr && movie->data.id != movieId) {
+    Movie* movie = movieHead;
+    while (movie != nullptr && movie->id != movieId) {
         movie = movie->next;
     }
     if (movie == nullptr) {
@@ -412,45 +513,35 @@ void MovieSystem::displayActorsInMovie(int movieId) {
     };
     TempActorNode* sortedHead = nullptr;
 
-    // Find all actors in this movie through cast list
-    CastNode* castNode = castHead;
-    while (castNode != nullptr) {
-        if (castNode->data.movie_id == movieId) {
-            // Find corresponding actor
-            ActorNode* actorNode = actorHead;
-            while (actorNode != nullptr) {
-                if (actorNode->data.id == castNode->data.person_id) {
-                    // Create new node
-                    TempActorNode* newNode = new TempActorNode;
-                    newNode->actorPtr = &(actorNode->data);
+    // Go through the movie's actor list
+    Actor* currentActor = movie->actors;
+    while (currentActor != nullptr) {
+        // Create new node
+        TempActorNode* newNode = new TempActorNode;
+        newNode->actorPtr = currentActor;
 
-                    // Insert in alphabetically sorted position
-                    if (sortedHead == nullptr ||
-                        strcmp(sortedHead->actorPtr->name, actorNode->data.name) > 0) {
-                        // Insert at beginning
-                        newNode->next = sortedHead;
-                        sortedHead = newNode;
-                    }
-                    else {
-                        // Find position to insert
-                        TempActorNode* current = sortedHead;
-                        while (current->next != nullptr &&
-                            strcmp(current->next->actorPtr->name, actorNode->data.name) <= 0) {
-                            current = current->next;
-                        }
-                        newNode->next = current->next;
-                        current->next = newNode;
-                    }
-                    break;
-                }
-                actorNode = actorNode->next;
-            }
+        // Insert in alphabetically sorted position
+        if (sortedHead == nullptr ||
+            strcmp(sortedHead->actorPtr->name, currentActor->name) > 0) {
+            // Insert at beginning
+            newNode->next = sortedHead;
+            sortedHead = newNode;
         }
-        castNode = castNode->next;
+        else {
+            // Find position to insert
+            TempActorNode* current = sortedHead;
+            while (current->next != nullptr &&
+                strcmp(current->next->actorPtr->name, currentActor->name) <= 0) {
+                current = current->next;
+            }
+            newNode->next = current->next;
+            current->next = newNode;
+        }
+        currentActor = currentActor->next;
     }
 
     // Display movie title and its actors
-    std::cout << "\nActors in \"" << movie->data.title << "\":\n";
+    std::cout << "\nActors in \"" << movie->title << "\":\n";
     std::cout << "----------------------------------------\n";
 
     if (sortedHead == nullptr) {
@@ -460,7 +551,7 @@ void MovieSystem::displayActorsInMovie(int movieId) {
         TempActorNode* current = sortedHead;
         while (current != nullptr) {
             std::cout << current->actorPtr->name << " (Birth Year: "
-                << current->actorPtr->birth << ")" << std::endl;
+                << current->actorPtr->birthYear << ")" << std::endl;
             TempActorNode* temp = current;
             current = current->next;
             delete temp;  // Clean up as we go
@@ -468,11 +559,10 @@ void MovieSystem::displayActorsInMovie(int movieId) {
     }
 }
 
-
 void MovieSystem::displayActorNetwork(int actorId) {
     // First verify actor exists
-    ActorNode* sourceActor = actorHead;
-    while (sourceActor != nullptr && sourceActor->data.id != actorId) {
+    Actor* sourceActor = actorHead;
+    while (sourceActor != nullptr && sourceActor->id != actorId) {
         sourceActor = sourceActor->next;
     }
     if (sourceActor == nullptr) {
@@ -488,127 +578,125 @@ void MovieSystem::displayActorNetwork(int actorId) {
     };
     ConnectedActor* sortedHead = nullptr;
 
-    // Find all movies the source actor is in
-    CastNode* castNode = castHead;
-    while (castNode != nullptr) {
-        if (castNode->data.person_id == actorId) {
-            int movieId = castNode->data.movie_id;
+    // First, find all movies that have the source actor
+    Movie* currentMovie = movieHead;
+    while (currentMovie != nullptr) {
+        Actor* actorInMovie = currentMovie->actors;
+        bool sourceActorInMovie = false;
 
-            // Find all other actors in this movie (direct connections)
-            CastNode* costarCast = castHead;
-            while (costarCast != nullptr) {
-                if (costarCast->data.movie_id == movieId &&
-                    costarCast->data.person_id != actorId) {
+        // Check if source actor is in this movie
+        while (actorInMovie != nullptr) {
+            if (actorInMovie->id == actorId) {
+                sourceActorInMovie = true;
+                break;
+            }
+            actorInMovie = actorInMovie->next;
+        }
 
-                    // Find actor details
-                    ActorNode* costar = actorHead;
-                    while (costar != nullptr && costar->data.id != costarCast->data.person_id) {
-                        costar = costar->next;
+        if (sourceActorInMovie) {
+            // Add all other actors in this movie as direct connections
+            actorInMovie = currentMovie->actors;
+            while (actorInMovie != nullptr) {
+                if (actorInMovie->id != actorId) {
+                    // Check if already in network
+                    bool alreadyExists = false;
+                    ConnectedActor* check = sortedHead;
+                    while (check != nullptr) {
+                        if (check->actorPtr->id == actorInMovie->id) {
+                            alreadyExists = true;
+                            break;
+                        }
+                        check = check->next;
                     }
-                    if (costar != nullptr) {
-                        // Add to sorted list if not already present
-                        bool alreadyExists = false;
-                        ConnectedActor* check = sortedHead;
-                        while (check != nullptr) {
-                            if (check->actorPtr->id == costar->data.id) {
-                                alreadyExists = true;
-                                break;
+
+                    if (!alreadyExists) {
+                        ConnectedActor* newNode = new ConnectedActor;
+                        newNode->actorPtr = actorInMovie;
+                        newNode->isDirect = true;
+
+                        // Insert alphabetically
+                        if (sortedHead == nullptr ||
+                            strcmp(sortedHead->actorPtr->name, actorInMovie->name) > 0) {
+                            newNode->next = sortedHead;
+                            sortedHead = newNode;
+                        }
+                        else {
+                            ConnectedActor* current = sortedHead;
+                            while (current->next != nullptr &&
+                                strcmp(current->next->actorPtr->name, actorInMovie->name) <= 0) {
+                                current = current->next;
                             }
-                            check = check->next;
+                            newNode->next = current->next;
+                            current->next = newNode;
                         }
 
-                        if (!alreadyExists) {
-                            ConnectedActor* newNode = new ConnectedActor;
-                            newNode->actorPtr = &(costar->data);
-                            newNode->isDirect = true;
+                        // Find indirect connections through this direct connection
+                        Movie* indirectMovie = movieHead;
+                        while (indirectMovie != nullptr) {
+                            Actor* indirectActor = indirectMovie->actors;
+                            bool directActorInMovie = false;
 
-                            // Insert alphabetically
-                            if (sortedHead == nullptr ||
-                                strcmp(sortedHead->actorPtr->name, costar->data.name) > 0) {
-                                newNode->next = sortedHead;
-                                sortedHead = newNode;
-                            }
-                            else {
-                                ConnectedActor* current = sortedHead;
-                                while (current->next != nullptr &&
-                                    strcmp(current->next->actorPtr->name, costar->data.name) <= 0) {
-                                    current = current->next;
+                            // Check if direct connection is in this movie
+                            while (indirectActor != nullptr) {
+                                if (indirectActor->id == actorInMovie->id) {
+                                    directActorInMovie = true;
+                                    break;
                                 }
-                                newNode->next = current->next;
-                                current->next = newNode;
+                                indirectActor = indirectActor->next;
                             }
 
-                            // Now find indirect connections through this costar
-                            CastNode* costarMovies = castHead;
-                            while (costarMovies != nullptr) {
-                                if (costarMovies->data.person_id == costar->data.id) {
-                                    int indirectMovieId = costarMovies->data.movie_id;
-
-                                    // Find all actors in this movie
-                                    CastNode* indirectCast = castHead;
-                                    while (indirectCast != nullptr) {
-                                        if (indirectCast->data.movie_id == indirectMovieId &&
-                                            indirectCast->data.person_id != actorId &&
-                                            indirectCast->data.person_id != costar->data.id) {
-
-                                            // Find indirect actor details
-                                            ActorNode* indirectActor = actorHead;
-                                            while (indirectActor != nullptr &&
-                                                indirectActor->data.id != indirectCast->data.person_id) {
-                                                indirectActor = indirectActor->next;
+                            if (directActorInMovie) {
+                                indirectActor = indirectMovie->actors;
+                                while (indirectActor != nullptr) {
+                                    if (indirectActor->id != actorId &&
+                                        indirectActor->id != actorInMovie->id) {
+                                        bool exists = false;
+                                        ConnectedActor* checkIndirect = sortedHead;
+                                        while (checkIndirect != nullptr) {
+                                            if (checkIndirect->actorPtr->id == indirectActor->id) {
+                                                exists = true;
+                                                break;
                                             }
+                                            checkIndirect = checkIndirect->next;
+                                        }
 
-                                            if (indirectActor != nullptr) {
-                                                // Check if already in list
-                                                bool exists = false;
-                                                ConnectedActor* checkIndirect = sortedHead;
-                                                while (checkIndirect != nullptr) {
-                                                    if (checkIndirect->actorPtr->id == indirectActor->data.id) {
-                                                        exists = true;
-                                                        break;
-                                                    }
-                                                    checkIndirect = checkIndirect->next;
+                                        if (!exists) {
+                                            ConnectedActor* newIndirectNode = new ConnectedActor;
+                                            newIndirectNode->actorPtr = indirectActor;
+                                            newIndirectNode->isDirect = false;
+
+                                            // Insert alphabetically
+                                            if (sortedHead == nullptr ||
+                                                strcmp(sortedHead->actorPtr->name, indirectActor->name) > 0) {
+                                                newIndirectNode->next = sortedHead;
+                                                sortedHead = newIndirectNode;
+                                            }
+                                            else {
+                                                ConnectedActor* current = sortedHead;
+                                                while (current->next != nullptr &&
+                                                    strcmp(current->next->actorPtr->name, indirectActor->name) <= 0) {
+                                                    current = current->next;
                                                 }
-
-                                                if (!exists) {
-                                                    ConnectedActor* newIndirectNode = new ConnectedActor;
-                                                    newIndirectNode->actorPtr = &(indirectActor->data);
-                                                    newIndirectNode->isDirect = false;
-
-                                                    // Insert alphabetically
-                                                    if (sortedHead == nullptr ||
-                                                        strcmp(sortedHead->actorPtr->name, indirectActor->data.name) > 0) {
-                                                        newIndirectNode->next = sortedHead;
-                                                        sortedHead = newIndirectNode;
-                                                    }
-                                                    else {
-                                                        ConnectedActor* current = sortedHead;
-                                                        while (current->next != nullptr &&
-                                                            strcmp(current->next->actorPtr->name, indirectActor->data.name) <= 0) {
-                                                            current = current->next;
-                                                        }
-                                                        newIndirectNode->next = current->next;
-                                                        current->next = newIndirectNode;
-                                                    }
-                                                }
+                                                newIndirectNode->next = current->next;
+                                                current->next = newIndirectNode;
                                             }
                                         }
-                                        indirectCast = indirectCast->next;
                                     }
+                                    indirectActor = indirectActor->next;
                                 }
-                                costarMovies = costarMovies->next;
                             }
+                            indirectMovie = indirectMovie->next;
                         }
                     }
                 }
-                costarCast = costarCast->next;
+                actorInMovie = actorInMovie->next;
             }
         }
-        castNode = castNode->next;
+        currentMovie = currentMovie->next;
     }
 
     // Display results
-    std::cout << "\nNetwork for " << sourceActor->data.name << ":\n";
+    std::cout << "\nNetwork for " << sourceActor->name << ":\n";
     std::cout << "----------------------------------------\n";
 
     if (sortedHead == nullptr) {
@@ -645,4 +733,89 @@ void MovieSystem::displayActorNetwork(int actorId) {
             std::cout << "None\n";
         }
     }
+}
+
+void MovieSystem::menu() {
+    loadData();
+    int choice;
+    do {
+        std::cout << "\nAdministrator Menu:\n";
+        std::cout << "1. Add Actor\n";
+        std::cout << "2. Add Movie\n";
+        std::cout << "3. Add Actor to Movie\n";
+        std::cout << "4. Update Actor Details\n";
+        std::cout << "5. Update Movie Details\n";
+        std::cout << "6. Display Actors in Age Range\n";
+        std::cout << "7. Display all movies made in the past 3 years\n";
+        std::cout << "8. Display Movies for Actor\n";
+        std::cout << "9. Display Actors in Movie\n";
+        std::cout << "10. Display Actor Network\n";
+        std::cout << "11. Exit\n";
+        std::cout << "Enter your choice: ";
+        std::cin >> choice;
+
+        if (std::cin.fail()) {
+            std::cin.clear();
+            std::cin.ignore(1000, '\n');
+            std::cout << "Invalid input. Please enter a number between 1 and 11.\n";  // Updated range
+            continue;
+        }
+
+        switch (choice) {
+        case 1:
+            addActor();
+            break;
+        case 2:
+            addMovie();
+            break;
+        case 3:
+            addActorToMovie();
+            break;
+        case 4:
+            updateActorDetails();
+            break;
+        case 5:
+            updateMovieDetails();
+            break;
+        case 6: {
+            int minAge, maxAge;
+            std::cout << "Enter minimum age: ";
+            std::cin >> minAge;
+            std::cout << "Enter maximum age: ";
+            std::cin >> maxAge;
+            displayActorsByAgeRange(minAge, maxAge);
+            break;
+        }
+        case 7:
+            displayRecentMovies();
+            break;
+        case 8: {
+            int actorId;
+            std::cout << "Enter actor ID: ";
+            std::cin >> actorId;
+            displayMoviesForActor(actorId);
+            break;
+        }
+        case 9: {
+            int movieId;
+            std::cout << "Enter movie ID: ";
+            std::cin >> movieId;
+            displayActorsInMovie(movieId);
+            break;
+        }
+        case 10: {
+            int actorId;
+            std::cout << "Enter actor ID: ";
+            std::cin >> actorId;
+            displayActorNetwork(actorId);
+            break;
+        }
+        case 11:
+            saveData();
+            std::cout << "Exiting the program. Goodbye!\n";
+            break;
+        default:
+            std::cout << "Invalid choice. Please enter a number between 1 and 11.\n";  // Updated range
+        }
+    } while (choice != 11);
 }
